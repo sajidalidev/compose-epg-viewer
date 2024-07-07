@@ -1,0 +1,39 @@
+[versions]
+agp = "8.3.2"
+appcompat = "1.7.0"
+coreKtxVersion = "1.12.0"
+espressoCore = "3.5.1"
+jodaTime = "2.12.7"
+junit = "4.13.2"
+junitVersion = "1.1.5"
+kotlin = "1.9.23"
+coreKtx = "1.13.1"
+media = "1.7.0"
+activityCompose = "1.9.0"
+composeBom = "2024.05.00"
+material = "1.10.0"
+
+[libraries]
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espressoCore" }
+androidx-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+androidx-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+junit = { module = "junit:junit", version.ref = "junit" }
+junit-ext = { module = "androidx.test.ext:junit", version.ref = "junitVersion" }
+androidx-media = { module = "androidx.media:media", version.ref = "media" }
+joda-time = { module = "joda-time:joda-time", version.ref = "jodaTime" }
+
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling-preview" }
+material3 = { module = "androidx.compose.material3:material3" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+
+[plugins]
+androidApplication = { id = "com.android.application", version.ref = "agp" }
+androidLibrary = { id = "com.android.library", version.ref = "agp" }
+jetbrainsKotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+
