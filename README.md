@@ -4,7 +4,11 @@ This repository contains the implementation of a TV Guide component built using 
 Android TV applications. The component is designed to provide a user-friendly interface for browsing
 TV channels and their corresponding events.
 
-![Demo Image](/demo.png)
+### Android
+![Android Demo](/android.png)
+
+### Dekstop
+![Desktop Demo](/desktop.png)
 
 ## Features
 
