@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="jctvguide-desktop">
+    <output-path>$PROJECT_DIR$/jctvguide/build/libs</output-path>
+    <root id="archive" name="jctvguide-desktop.jar">
+      <element id="module-output" name="Tv_Guide.jctvguide.desktopMain" />
+    </root>
+  </artifact>
+</component>
