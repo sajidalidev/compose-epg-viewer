@@ -1,6 +1,7 @@
 package dev.sajidali.tvguide
 
 import dev.sajidali.jctvguide.data.Event
+import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.format
 import kotlinx.datetime.format.DateTimeComponents
@@ -31,6 +32,9 @@ fun generateEvents(channel: Int, start: Long, stop: Long): List<Event> {
         }
     }
 }
+
+val now
+    get() = Clock.System.now().toEpochMilliseconds()
 
 fun Long.formatToPattern(pattern: String): String {
     return Instant.fromEpochMilliseconds(this)

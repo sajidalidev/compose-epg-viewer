@@ -5,9 +5,10 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.IntSize
 import dev.sajidali.jctvguide.data.EventWithIndex
 
-abstract class TvGuideScope
+abstract class TvGuideScope(val size: IntSize)
 
 abstract class HeaderScope
 

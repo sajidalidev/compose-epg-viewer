@@ -2,20 +2,39 @@ package dev.sajidali.tvguide
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import dev.sajidali.jctvguide.*
-import dev.sajidali.jctvguide.data.Channel
+import dev.sajidali.jctvguide.ChannelCell
+import dev.sajidali.jctvguide.ChannelRow
+import dev.sajidali.jctvguide.Channels
+import dev.sajidali.jctvguide.CurrentDay
+import dev.sajidali.jctvguide.EventCell
+import dev.sajidali.jctvguide.Events
+import dev.sajidali.jctvguide.Header
+import dev.sajidali.jctvguide.TimeCell
+import dev.sajidali.jctvguide.Timebar
+import dev.sajidali.jctvguide.TvGuide
 import dev.sajidali.jctvguide.data.Event
-import dev.sajidali.jctvguide.utils.now
 import dev.sajidali.jctvguide.utils.rememberGuideState
+import dev.sajidali.tvguide.data.Channel
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -36,7 +55,7 @@ fun App() {
             Channel(position, "Channel $position", "").also {
                 it.events = generateEvents(position, startTime, stopTime)
             }
-        }
+        }.toMutableStateList()
     }
 
     val guideState = rememberGuideState(
@@ -68,7 +87,6 @@ fun App() {
 
         TvGuide(
             state = guideState,
-            fastScroll = true,
             nowIndicator = {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawLine(
@@ -78,9 +96,6 @@ fun App() {
                         strokeWidth = 3f
                     )
                 }
-            },
-            onEventSelected = { channel, event ->
-                selected = Selection(channel, event)
             },
         ) {
 
@@ -119,15 +134,20 @@ fun App() {
 
             Channels(
                 width = 250.dp,
-                itemsCount = events.size,
+                channels = events,
+                key = { it?.id ?: 0 },
                 modifier = Modifier
-            ) { channel: Int, isSelected ->
+            ) { channelIndex: Int, channel: Channel?, isSelected ->
+
+                val channelEvents = remember(channelIndex) {
+                    events[channelIndex].events
+                }
 
                 ChannelRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(if (isSelected) 40.dp else 32.dp)
-                ) { channelPos ->
+                ) { _ ->
                     ChannelCell(
                         modifier = Modifier
                             .padding(
@@ -145,7 +165,7 @@ fun App() {
                                 .fillMaxSize()
                         ) {
                             Text(
-                                text = events.get(channel).title,
+                                text = channel?.title ?: "",
                                 color = Color.White,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
@@ -156,7 +176,7 @@ fun App() {
 
                     Events(
                         modifier = Modifier,
-                        events = events[channel].events
+                        events = channelEvents
                     ) { event: Event, isEventSelected ->
                         EventCell(
                             modifier = Modifier
@@ -165,7 +185,13 @@ fun App() {
                                     if (isEventSelected) Color.Red else Color.Gray
                                 )
                                 .padding(start = 8.dp),
-                            onClick = { channelIndex: Int, eventIndex: Int ->
+                            onSelected = {
+                                selected = Selection(
+                                    channelIndex,
+                                    events[channelIndex].events.indexOf(event)
+                                )
+                            },
+                            onClick = {
 
                             }
                         ) {

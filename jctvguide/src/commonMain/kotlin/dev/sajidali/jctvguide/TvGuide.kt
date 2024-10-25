@@ -2,13 +2,43 @@
 
 package dev.sajidali.jctvguide
 
+import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -20,16 +50,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import dev.sajidali.jctvguide.data.Event
 import dev.sajidali.jctvguide.data.EventWithIndex
-import dev.sajidali.jctvguide.utils.*
+import dev.sajidali.jctvguide.utils.DefaultBringIntoViewSpec
+import dev.sajidali.jctvguide.utils.findVisibleEvents
+import dev.sajidali.jctvguide.utils.now
+import dev.sajidali.jctvguide.utils.pxToDp
+import dev.sajidali.jctvguide.utils.toPx
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.hours
+import kotlinx.coroutines.withContext
+import kotlin.math.abs
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 internal val LocalHorizontalScrollState = compositionLocalOf<ScrollableState> {
     error("No HorizontalScrollState Provided")
@@ -37,63 +82,49 @@ internal val LocalHorizontalScrollState = compositionLocalOf<ScrollableState> {
 
 @Composable
 fun TvGuide(
-    state: GuideState,
+    state: TvGuideState,
     modifier: Modifier = Modifier,
-    fastScroll: Boolean = false,
     onStartReached: () -> Unit = {},
     onEndReached: () -> Unit = {},
-    onEventSelected: (channel: Int, event: Int) -> Unit = { _, _ -> },
     nowIndicator: @Composable BoxScope.() -> Unit = {},
     content: @Composable TvGuideScope.() -> Unit,
 ) {
-
-    val scope = rememberCoroutineScope()
 
     val horizontalScrollState = rememberScrollableState { delta ->
         val maxValue = ((state.endTime - state.startTime) / state.millisPerPixel)
         if (maxValue < 0) return@rememberScrollableState 0f
         val newDelta =
-            delta.coerceIn(-state.xOffset.floatValue, maxValue - state.xOffset.floatValue)
-        state.xOffset.floatValue += newDelta
+            delta.coerceIn(-state.xOffset, maxValue - state.xOffset)
+        state.xOffset += newDelta
         newDelta
     }
 
-    val draggableState = rememberDraggableState { delta ->
-        scope.launch {
-            horizontalScrollState.scrollBy(-delta)
-        }
-    }
 
-    LaunchedEffect(state.viewportWidth.intValue, state.viewportHeight.intValue) {
-        if (state.viewportWidth.intValue > 0 && state.viewportHeight.intValue > 0) {
-            horizontalScrollState.scrollBy(state.selectionOffset)
-        }
-    }
 
-    LaunchedEffect(state.selectionTime.floatValue) {
-        horizontalScrollState.animateScrollBy(state.selectionOffset)
-    }
-
-    LaunchedEffect(state.selectedChannel.intValue, state.selectedEvent.intValue) {
-        onEventSelected(state.selectedChannel.intValue, state.selectedEvent.intValue)
+    LaunchedEffect(state.selectionTime) {
+        horizontalScrollState.animateScrollBy(
+            state.selectionOffset,
+        )
     }
 
 
     CompositionLocalProvider(
-        LocalGuideState provides state,
+        LocalTvGuideState provides state,
         LocalHorizontalScrollState provides horizontalScrollState,
-        LocalBringIntoViewSpec provides DefaultBringIntoViewSpec()
+        LocalBringIntoViewSpec provides DefaultBringIntoViewSpec(),
     ) {
+
+        val size = remember { mutableStateOf(IntSize(1920, 1080)) }
+
         Box(modifier = modifier
             .keyEvent(onStartReached, onEndReached)
-            .onGloballyPositioned {
-                state.viewportWidth.intValue = it.size.width
-                state.viewportHeight.intValue = it.size.height
-            }
             .onFocusChanged {
-                if (it.hasFocus && state.selectedEvent.intValue == -1) {
-                    state.selectedEvent.intValue = 0
+                if (it.hasFocus && state.selectedEvent == -1) {
+                    state.selectedEvent = 0
                 }
+            }
+            .onSizeChanged {
+                size.value = it
             }
             .fillMaxSize()
             .scrollable(
@@ -101,16 +132,21 @@ fun TvGuide(
                 Orientation.Horizontal,
                 reverseDirection = true,
             )
-            .draggable(orientation = Orientation.Horizontal, state = draggableState)
+//            .draggable(orientation = Orientation.Horizontal, state = draggableState)
             .focusable()
         ) {
-
             Column(modifier = Modifier.fillMaxSize()) {
-                TvGuideScopeImpl().content()
+
+                val guideScopeImpl = remember(size.value) {
+                    TvGuideScopeImpl(size.value)
+                }
+
+                guideScopeImpl.content()
             }
 
             Now(modifier = Modifier) {
-                nowIndicator()
+                if (state.channelCount > 0)
+                    nowIndicator()
             }
 
         }
@@ -118,7 +154,7 @@ fun TvGuide(
 
 }
 
-val LocalGuideState = compositionLocalOf<GuideState> { error("No GuideState Provided") }
+val LocalTvGuideState = compositionLocalOf<TvGuideState> { error("No GuideState Provided") }
 
 @Composable
 fun TvGuideScope.Header(
@@ -126,8 +162,12 @@ fun TvGuideScope.Header(
     modifier: Modifier = Modifier,
     content: @Composable HeaderScope.() -> Unit
 ) {
-    val state = LocalGuideState.current
-    state.timeBarHeight.floatValue = height.toPx()
+    val state = LocalTvGuideState.current
+    val heightPx = height.toPx()
+
+    LaunchedEffect(heightPx) {
+        state.timeBarHeight = heightPx
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -135,7 +175,8 @@ fun TvGuideScope.Header(
             .clipToBounds()
             .then(modifier)
     ) {
-        content(HeaderScopeImpl())
+        val headerScopeImpl = remember { HeaderScopeImpl() }
+        content(headerScopeImpl)
     }
 }
 
@@ -144,7 +185,9 @@ fun HeaderScope.Timebar(
     modifier: Modifier = Modifier,
     content: @Composable (TimeCellScope.() -> Unit)
 ) {
-    val state = LocalGuideState.current
+    val state = LocalTvGuideState.current
+    val timeCellWidth by remember { derivedStateOf { state.timeCellWidth } }
+
     Box(
         modifier = Modifier
             .fillMaxHeight()
@@ -152,24 +195,25 @@ fun HeaderScope.Timebar(
             .clipToBounds()
             .then(modifier)
     ) {
-        for (time in state.scrollTime.toLong()..state.scrollTime.toLong() + state.hoursInViewport.inWholeMilliseconds step state.timeSpacing.value.inWholeMilliseconds) {
-            val roundTime = time - time % state.timeSpacing.value.inWholeMilliseconds
+        for (time in state.scrollTime.toLong()..state.scrollTime.toLong() + state.hoursInViewport.inWholeMilliseconds step state.timeSpacing.inWholeMilliseconds) {
+            val roundTime = time - time % state.timeSpacing.inWholeMilliseconds
             val xOffset =
                 ((roundTime - state.scrollTime) / state.millisPerPixel).toInt() - 40 // Find a better way to align time labels in center
             Box(
                 modifier = Modifier
-                    .width(state.timeCellWidth.pxToDp())
+                    .width(timeCellWidth.pxToDp())
                     .absoluteOffset { IntOffset(x = xOffset, y = 0) }
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
-                content(TimeCellScopeImpl(roundTime))
+                val timeCellScope = remember(roundTime) { TimeCellScopeImpl(roundTime) }
+                content(timeCellScope)
             }
         }
     }
 }
 
-class TvGuideScopeImpl : TvGuideScope()
+class TvGuideScopeImpl(size: IntSize) : TvGuideScope(size)
 
 class HeaderScopeImpl : HeaderScope()
 
@@ -179,7 +223,7 @@ fun HeaderScope.CurrentDay(
     modifier: Modifier,
     content: @Composable (BoxScope.(time: Long) -> Unit)
 ) {
-    val state = LocalGuideState.current
+    val state = LocalTvGuideState.current
     Box(
         modifier = Modifier
             .width(width)
@@ -191,74 +235,148 @@ fun HeaderScope.CurrentDay(
 }
 
 @Composable
+fun <T : Any> TvGuideScope.Channels(
+    width: Dp,
+    channels: SnapshotStateList<T>,
+    key: (T?) -> Any,
+    modifier: Modifier,
+    content: @Composable (ChannelRowScope.(index: Int, channel: T?, isSelected: Boolean) -> Unit)
+) = Channels(
+    width = width,
+    itemsCount = channels.size,
+    key = { key(channels[it]) },
+    modifier = modifier
+) { index, isSelected ->
+    val channel = channels[index]
+    content(index, channel, isSelected)
+}
+
+@Composable
 fun TvGuideScope.Channels(
     width: Dp,
     itemsCount: Int,
+    key: (index: Int) -> Any = { it },
     modifier: Modifier,
     content: @Composable (ChannelRowScope.(channel: Int, isSelected: Boolean) -> Unit)
 ) {
-    val state = LocalGuideState.current
-
+    val state = LocalTvGuideState.current
+    val horizontalState = LocalHorizontalScrollState.current
     val widthPx = width.toPx()
-    state.update {
-        channelAreaWidth.floatValue = widthPx
-        channelCount.intValue = itemsCount
-    }
-    var height by remember { mutableIntStateOf(0) }
-    val channelState = rememberLazyListState(state.selectedChannel.intValue, -height / 4)
+    val programAreaWidth = remember(size, width) { (size.width - widthPx) }
+    val height = remember(size) { size.height }
 
-    LaunchedEffect(state.viewportWidth.intValue, state.viewportHeight.intValue) {
-        channelState.scrollToItem(state.selectedChannel.intValue, -height / 4)
+    val channelOffset = remember(height) { (-height / 4) }
+
+    val channelState = rememberLazyListState(
+        state.selectedChannel,
+        channelOffset
+    )
+
+    LaunchedEffect(Unit) {
+        channelState.requestScrollToItem(state.selectedChannel, channelOffset)
     }
 
-    LaunchedEffect(state.selectedChannel.intValue) {
-        channelState.animateScrollToItem(state.selectedChannel.intValue, -height / 4)
+    LaunchedEffect(programAreaWidth) {
+        state.update {
+            this.programAreaWidth = programAreaWidth
+        }
+        horizontalState.scrollBy(state.selectionOffset)
+    }
+
+    LaunchedEffect(itemsCount) {
+        state.update {
+            channelCount = itemsCount
+        }
+    }
+
+    LaunchedEffect(widthPx) {
+        state.update {
+            channelAreaWidth = widthPx
+        }
+    }
+
+    LaunchedEffect(state.selectedChannel) {
+        val difference = abs(channelState.firstVisibleItemIndex - state.selectedChannel)
+        if (difference < 5)
+            channelState.animateScrollToItem(state.selectedChannel, channelOffset)
+        else
+            channelState.requestScrollToItem(state.selectedChannel, channelOffset)
     }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .onGloballyPositioned {
-                height = it.size.height
-            }
             .then(modifier),
         state = channelState
     ) {
 
-        items(state.channelCount.intValue) { pos ->
-            content(
-                ChannelRowScopeImpl(pos),
-                pos,
-                state.selectedChannel.intValue == pos
-            )
-        }
+        items(
+            count = itemsCount,
+            key = key,
+        ) { pos ->
+            val isSelected by remember {
+                derivedStateOf {
+                    state.selectedChannel == pos
+                }
+            }
 
+            val channelScopeImpl = remember(pos) { ChannelRowScopeImpl(pos) }
+
+            content(
+                channelScopeImpl,
+                pos,
+                isSelected
+            )
+
+        }
     }
 
 }
 
 @Composable
 private fun Now(modifier: Modifier, content: @Composable (BoxScope.(time: Long) -> Unit)) {
-    val state = LocalGuideState.current
+    val state = LocalTvGuideState.current
 
-    val nowOffset = (now - state.scrollTime) / state.millisPerPixel
-    if (now.toFloat() in state.scrollTime..state.maxScrollTime) {
+    var currentTime by remember {
+        mutableLongStateOf(now)
+    }
+
+    val offset by remember {
+        derivedStateOf {
+            val nowOffset = (currentTime - state.scrollTime) / state.millisPerPixel
+            state.channelAreaWidth + nowOffset
+        }
+    }
+
+    val animateOffset by animateIntOffsetAsState(IntOffset(x = offset.toInt(), y = 0), label = "")
+
+    val shouldDisplay by remember {
+        derivedStateOf {
+            currentTime.toFloat() in state.scrollTime..state.maxScrollTime
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30.seconds)
+            currentTime = now
+        }
+    }
+
+    if (shouldDisplay) {
         Box(modifier = Modifier
             .offset {
-                IntOffset(
-                    (state.channelAreaWidth.floatValue + nowOffset).toInt(),
-                    0
-                )
+                animateOffset
             }
             .then(modifier)) {
-            content(now)
+            content(currentTime)
         }
     }
 }
 
 
 class ChannelRowScopeImpl(
-    position: Int
+    position: Int,
 ) : ChannelRowScope(position)
 
 
@@ -273,7 +391,8 @@ fun ChannelRowScope.ChannelRow(
             .fillMaxWidth()
             .then(modifier)
     ) {
-        ChannelScopeImpl(position).content(position)
+        val channelScopeImpl = remember(position) { ChannelScopeImpl(position) }
+        channelScopeImpl.content(position)
     }
 }
 
@@ -288,10 +407,21 @@ class EventScopeImpl(
         color: Color,
         shape: Shape
     ): Modifier {
-        val state = LocalGuideState.current
+        var currentTime by remember {
+            mutableLongStateOf(now)
+        }
+
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(30.seconds)
+                currentTime = now
+            }
+        }
+
+        val state = LocalTvGuideState.current
         return this then Modifier
             .drawBehind {
-                val endVisibleTime = minOf(event.event.end, now)
+                val endVisibleTime = minOf(event.event.end, currentTime)
                 val startVisibleTime = maxOf(event.event.start.toFloat(), state.scrollTime)
                 val visibleEventWidth = if (endVisibleTime == event.event.end)
                     size.width
@@ -324,22 +454,30 @@ class EventScopeImpl(
 fun EventScope.EventCell(
     modifier: Modifier = Modifier,
     requestFocus: Boolean = false,
-    onClick: (channel: Int, event: Int) -> Unit,
+    onClick: () -> Unit,
+    onSelected: (event: Event) -> Unit,
     content: @Composable (BoxScope.() -> Unit)
 ) {
-
     val horizontalScrollState = LocalHorizontalScrollState.current
     val scope = rememberCoroutineScope()
-    val state = LocalGuideState.current
-    val endVisibleTime = minOf(event.event.end.toFloat(), state.maxScrollTime)
-    val startVisibleTime = maxOf(event.event.start.toFloat(), state.scrollTime)
+    val state = LocalTvGuideState.current
+    val endVisibleTime = remember(state.maxScrollTime) {
+        minOf(event.event.end.toFloat(), state.maxScrollTime)
+    }
+    val startVisibleTime = remember(state.scrollTime) {
+        maxOf(event.event.start.toFloat(), state.scrollTime)
+    }
+
     val width = (endVisibleTime - startVisibleTime) / state.millisPerPixel
 
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(state.selectedChannel.intValue, state.selectionTime.floatValue) {
-        if (state.selectedChannel.intValue == channel && state.selectionTime.floatValue in event.event.start.toFloat()..event.event.end.toFloat()) {
-            state.selectedEvent.intValue = event.index
+    LaunchedEffect(state.selectedChannel, state.selectionTime) {
+        if (state.selectedChannel == channel
+            && state.selectionTime in event.event.start.toFloat()..event.event.end.toFloat()
+        ) {
+            state.selectedEvent = event.index
+            onSelected(event.event)
             if (requestFocus)
                 focusRequester.requestFocus()
         }
@@ -358,22 +496,22 @@ fun EventScope.EventCell(
                 if (it.type == KeyEventType.KeyUp) return@onKeyEvent false
                 when (it.key) {
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                        onClick(state.selectedChannel.intValue, state.selectedEvent.intValue)
+                        onClick()
                         true
                     }
 
                     else -> false
                 }
             }
-            .pointerInput(channel, event.index) {
+            .pointerInput(channel, event.event.id) {
                 detectTapGestures {
                     scope.launch {
                         horizontalScrollState.animateScrollBy((state.scrollTime - startVisibleTime) / state.millisPerPixel)
                     }
                     state.update {
-                        selectedChannel.intValue = channel
-                        selectedEvent.intValue = event.index
-                        onClick(channel, event.index)
+                        selectedChannel = channel
+                        selectionTime = event.event.start.toFloat()
+                        onClick()
                     }
                 }
             }
@@ -393,16 +531,16 @@ fun ChannelScope.ChannelCell(
     content: @Composable (BoxScope.() -> Unit)
 ) {
 
-    val state = LocalGuideState.current
+    val state = LocalTvGuideState.current
 
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .width(state.channelAreaWidth.floatValue.pxToDp())
+            .width(state.channelAreaWidth.pxToDp())
             .pointerInput(channel) {
                 detectTapGestures(onPress = {
                     state.update {
-                        selectedChannel.intValue = channel
+                        selectedChannel = channel
                         onClick()
                     }
                 })
@@ -415,7 +553,7 @@ fun ChannelScope.ChannelCell(
 
 @Composable
 fun Modifier.keyEvent(onStartReached: () -> Unit = {}, onEndReached: () -> Unit = {}): Modifier {
-    val state = LocalGuideState.current
+    val state = LocalTvGuideState.current
 
     var shouldSkipNow by remember {
         mutableStateOf(false)
@@ -425,45 +563,49 @@ fun Modifier.keyEvent(onStartReached: () -> Unit = {}, onEndReached: () -> Unit 
         mutableStateOf(false)
     }
 
+    var shouldLoop by remember {
+        mutableStateOf(false)
+    }
+
     return this then Modifier.onKeyEvent {
         if (it.type == KeyEventType.KeyUp) {
             val newSelectionTime =
-                state.selectionTime.floatValue - state.timeIncrement.value.inWholeMilliseconds
+                state.selectionTime - state.timeIncrement.inWholeMilliseconds
             if (it.key == Key.DirectionLeft && shouldTrySkipping && newSelectionTime < now) {
                 onStartReached()
                 return@onKeyEvent true
+            } else if (it.key == Key.DirectionDown && shouldLoop && state.selectedChannel == state.channelCount - 1) {
+                state.selectedChannel = 0
+            } else if (it.key == Key.DirectionUp && shouldLoop && state.selectedChannel == 0) {
+                state.selectedChannel = state.channelCount - 1
+            } else if (it.key == Key.Back || it.key == Key.Escape) {
+                if (now.toFloat() in state.scrollTime..state.maxScrollTime) {
+                    onStartReached()
+                    return@onKeyEvent true
+                } else {
+                    state.gotoNow()
+                    return@onKeyEvent true
+                }
             }
             shouldTrySkipping = true
+            shouldLoop = true
             return@onKeyEvent false
         }
         when (it.key) {
 
             Key.Back, Key.Escape -> {
-                if (now.toFloat() in state.scrollTime..state.maxScrollTime) {
-                    onStartReached()
-                    true
-                } else {
-                    state.selectionTime.floatValue =
-                        now.roundToNearest(state.timeSpacing.value).toFloat()
-                    true
-                }
+                true
             }
 
             Key.DirectionLeft -> {
                 val newSelectionTime =
-                    state.selectionTime.floatValue - state.timeIncrement.value.inWholeMilliseconds
+                    state.selectionTime - state.timeIncrement.inWholeMilliseconds
                 val minSelectionTime =
-                    if (state.stopAtNow.value && !shouldSkipNow) state.roundedNow else state.roundedStartTime
+                    if (state.stopAtNow && !shouldSkipNow) state.roundedNow else state.roundedStartTime
                 val maxSelectionTime = state.roundedEndTime
                 state.update {
-                    selectionTime.floatValue =
+                    selectionTime =
                         newSelectionTime.coerceIn(minSelectionTime, maxSelectionTime)
-                }
-                if (newSelectionTime - 1.hours.inWholeMilliseconds > now && it.pressedDuration == 0) {
-                    shouldTrySkipping = false
-                }
-                if (shouldTrySkipping && newSelectionTime < now && it.pressedDuration > 1500) {
-                    shouldSkipNow = true
                 }
 
                 true
@@ -472,12 +614,12 @@ fun Modifier.keyEvent(onStartReached: () -> Unit = {}, onEndReached: () -> Unit 
             Key.DirectionRight -> {
 
                 val newSelectionTime =
-                    state.selectionTime.floatValue + state.timeIncrement.value.inWholeMilliseconds
+                    state.selectionTime + state.timeIncrement.inWholeMilliseconds
                 val minSelectionTime = state.roundedStartTime
                 val maxSelectionTime = state.roundedEndTime
 
                 state.update {
-                    selectionTime.floatValue =
+                    selectionTime =
                         newSelectionTime.coerceIn(minSelectionTime, maxSelectionTime)
                 }
                 if (newSelectionTime > state.roundedNow) {
@@ -487,14 +629,18 @@ fun Modifier.keyEvent(onStartReached: () -> Unit = {}, onEndReached: () -> Unit 
             }
 
             Key.DirectionUp -> {
-                state.selectedChannel.intValue =
-                    (state.selectedChannel.intValue - 1).coerceAtLeast(0)
+                state.selectedChannel = (state.selectedChannel - 1)
+                    .coerceAtLeast(
+                        0
+                    )
                 true
             }
 
             Key.DirectionDown -> {
-                state.selectedChannel.intValue =
-                    (state.selectedChannel.intValue + 1).coerceAtMost(state.channelCount.intValue - 1)
+                state.selectedChannel = (state.selectedChannel + 1)
+                    .coerceAtMost(
+                        state.channelCount - 1
+                    )
                 true
             }
 
@@ -504,46 +650,100 @@ fun Modifier.keyEvent(onStartReached: () -> Unit = {}, onEndReached: () -> Unit 
 }
 
 class ChannelScopeImpl(
-    channel: Int
+    channel: Int,
 ) : ChannelScope(channel)
 
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChannelScope.Events(
     modifier: Modifier,
     events: List<Event>,
     content: @Composable (EventScope.(event: Event, isSelected: Boolean) -> Unit)
 ) {
+    val state = LocalTvGuideState.current
+    var previousXOffset = remember {
+        state.xOffset
+    }
 
-    val state = LocalGuideState.current
-    val visibleEvents = /*remember(channel, state.scrollTime, state.maxScrollTime) {*/
-        events.findVisibleEvents(state.scrollTime, state.maxScrollTime)
-    /*}*/
+    val allEvents = remember {
+        events
+    }
 
-//    LaunchedEffect(state.selectedEvent.intValue) {
-//        if (state.selectedEvent.intValue == -1) {
-//            state.selectedEvent.intValue = events.indexOfFirst { it.isCurrent }
-//        }
-//    }
-//
-//    LaunchedEffect(state.selectedChannel.intValue) {
-//        if (state.selectedChannel.intValue == channel) {
-//            state.selectedEvent.intValue =
-//                events.indexOfFirst { it.isAroundTime(state.scrollTime.toLong()) }
-//        }
-//    }
+    var visibleEvents by remember {
+        mutableStateOf(listOf<EventWithIndex>())
+    }
+
+    var visibleRange by remember {
+        mutableStateOf(allEvents.indices)
+    }
+
+    LaunchedEffect(state.xOffset, allEvents) {
+        withContext(Dispatchers.IO) {
+            // Get it working. Some sort of issue when scrolling left, events vanish
+
+//            val (start, end) = if (previousXOffset.toInt() == 0) {
+//                0 to allEvents.lastIndex.coerceAtLeast(0)
+//            } else if (previousXOffset < state.xOffset) {
+//                visibleRange.first to allEvents.lastIndex.coerceAtLeast(0)
+//            } else {
+//                0 to visibleRange.last.coerceAtLeast(0)
+//            }
+            previousXOffset = state.xOffset
+            visibleEvents =
+                allEvents.findVisibleEvents(
+                    state.scrollTime - 30.minutes.inWholeMilliseconds,
+                    state.maxScrollTime + 30.minutes.inWholeMilliseconds,
+//                    start,
+//                    end
+                )
+            visibleRange = (visibleEvents.firstOrNull()?.index ?: 0)..allEvents.lastIndex
+        }
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(modifier)
+            .then(modifier),
     ) {
-        for (event in visibleEvents) {
+        if (visibleEvents.isNotEmpty()) {
+            for (event in visibleEvents) {
+                key(event.event.id) {
+                    val isSelected by remember {
+                        derivedStateOf {
+                            state.selectedChannel == channel && state.selectedEvent == event.index
+                        }
+                    }
+                    val eventScopeImpl =
+                        remember(channel, event.event.id) { EventScopeImpl(channel, event) }
+                    content(
+                        eventScopeImpl,
+                        event.event,
+                        isSelected
+                    )
+                }
+            }
+        } else {
+            val event = EventWithIndex(
+                0,
+                Event(
+                    0,
+                    "Loading...",
+                    "",
+                    state.scrollTime.toLong(),
+                    state.maxScrollTime.toLong()
+                )
+            )
+            val isSelected by remember {
+                derivedStateOf {
+                    state.selectedChannel == channel && state.selectedEvent == event.index
+                }
+            }
+            val eventScopeImpl =
+                remember(channel, event.event.id) { EventScopeImpl(channel, event) }
             content(
-                EventScopeImpl(channel, event),
+                eventScopeImpl,
                 event.event,
-                state.selectedChannel.intValue == channel && state.selectedEvent.intValue == event.index
+                isSelected
             )
         }
     }
@@ -556,11 +756,10 @@ class TimeCellScopeImpl(
 
 @Composable
 fun TimeCellScope.TimeCell(modifier: Modifier, content: @Composable BoxScope.(time: Long) -> Unit) {
-    val state = LocalGuideState.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(state.timeBarHeight.floatValue.pxToDp())
+            .fillMaxHeight()
             .then(modifier)
     ) {
         content(time)

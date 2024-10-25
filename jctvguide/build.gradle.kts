@@ -28,6 +28,7 @@ kotlin {
                 implementation(libs.kotlinx.datetime)
                 implementation(compose.runtime)
                 implementation(compose.ui)
+                implementation(libs.androidx.core.ktx)
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.components.uiToolingPreview)
