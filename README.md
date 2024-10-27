@@ -1,7 +1,6 @@
 # TV Guide Component
 
-This repository contains the implementation of a TV Guide component built using Jetpack Compose for
-Android TV applications. The component is designed to provide a user-friendly interface for browsing
+This repository contains the implementation of a TV Guide component built using Compose Multiplatform for Android, Desktop and iOS . The component is designed to provide a user-friendly interface for browsing
 TV channels and their corresponding events.
 
 ### Android
