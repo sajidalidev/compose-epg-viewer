@@ -1,6 +1,6 @@
-package dev.sajidali.jctvguide.data
+package dev.sajidali.tvguide.data
 
-import dev.sajidali.jctvguide.utils.now
+import dev.sajidali.tvguide.utils.now
 
 
 data class Event(

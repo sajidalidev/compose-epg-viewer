@@ -1,4 +1,4 @@
-package dev.sajidali.jctvguide
+package dev.sajidali.tvguide
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
@@ -7,8 +7,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
-import dev.sajidali.jctvguide.utils.now
-import dev.sajidali.jctvguide.utils.roundToNearest
+import dev.sajidali.tvguide.utils.now
+import dev.sajidali.tvguide.utils.roundToNearest
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
@@ -106,11 +106,6 @@ class TvGuideState {
     val nowOffset: Float
         get() = (xOffset * millisPerPixel + (roundedNow - roundedStartTime)) / millisPerPixel
 
-
-    //Change it to actually update all block at once
-    fun update(block: TvGuideState.() -> Unit) {
-        this.block()
-    }
 
 //    fun isEmpty(): Boolean {
 //        return channelCount == 0
