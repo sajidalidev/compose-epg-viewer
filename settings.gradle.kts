@@ -26,4 +26,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Tv Guide"
 include(":app")
-include(":jctvguide")
+include(":tvguide")

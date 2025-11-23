@@ -1,4 +1,4 @@
-package dev.sajidali.jctvguide.utils
+package dev.sajidali.tvguide.utils
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.BringIntoViewSpec

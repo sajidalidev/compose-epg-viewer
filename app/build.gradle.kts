@@ -30,7 +30,7 @@ kotlin {
         val desktopMain by getting
 
         commonMain.dependencies {
-            implementation(project(":jctvguide"))
+            implementation(project(":tvguide"))
             implementation(libs.kotlinx.datetime)
             implementation(compose.runtime)
             implementation(compose.ui)
@@ -66,12 +66,12 @@ compose.desktop {
 
 android {
     namespace = "dev.sajidali.demo"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.sajidali.demo"
-        minSdk = 21
-        targetSdk = 34
+        minSdk = 23
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }

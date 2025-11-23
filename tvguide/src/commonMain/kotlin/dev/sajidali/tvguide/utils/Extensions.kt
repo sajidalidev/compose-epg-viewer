@@ -1,9 +1,9 @@
-package dev.sajidali.jctvguide.utils
+package dev.sajidali.tvguide.utils
 
-import dev.sajidali.jctvguide.data.Event
-import dev.sajidali.jctvguide.data.EventWithIndex
-import kotlinx.datetime.Clock
+import dev.sajidali.tvguide.data.Event
+import dev.sajidali.tvguide.data.EventWithIndex
 import kotlin.time.Duration
+import kotlin.time.ExperimentalTime
 
 
 fun Long.roundToNearest(timeSpacing: Duration): Long {
@@ -65,8 +65,9 @@ fun List<Event>.visibleRange(
 
 }
 
+@OptIn(ExperimentalTime::class)
 val now
-    get() = Clock.System.now().toEpochMilliseconds()
+    get() = kotlin.time.Clock.System.now().toEpochMilliseconds()
 
 fun List<Event>.findVisibleEvents(
     viewportStart: Float,

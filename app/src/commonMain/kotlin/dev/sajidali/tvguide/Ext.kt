@@ -1,13 +1,13 @@
 package dev.sajidali.tvguide
 
-import dev.sajidali.jctvguide.data.Event
-import kotlinx.datetime.Clock
+import dev.sajidali.tvguide.data.Event
 import kotlinx.datetime.Instant
 import kotlinx.datetime.format
 import kotlinx.datetime.format.DateTimeComponents
 import kotlinx.datetime.format.byUnicodePattern
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.ExperimentalTime
 
 fun generateEvents(channel: Int, start: Long, stop: Long): List<Event> {
     var startTime = start
@@ -33,9 +33,11 @@ fun generateEvents(channel: Int, start: Long, stop: Long): List<Event> {
     }
 }
 
+@OptIn(ExperimentalTime::class)
 val now
-    get() = Clock.System.now().toEpochMilliseconds()
+    get() = kotlin.time.Clock.System.now().toEpochMilliseconds()
 
+@OptIn(ExperimentalTime::class)
 fun Long.formatToPattern(pattern: String): String {
     return Instant.fromEpochMilliseconds(this)
         .format(DateTimeComponents.Format {
