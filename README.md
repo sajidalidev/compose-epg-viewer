@@ -1,8 +1,6 @@
 # TV Guide Component
 
-This repository contains the implementation of a TV Guide component built using Jetpack Compose for
-Android TV applications. The component is designed to provide a user-friendly interface for browsing
-TV channels and their corresponding events.
+This repository contains the implementation of a TV Guide component built using Compose Multiplatform. It supports Android, Desktop, and iOS. The component is designed to provide a user-friendly interface for browsing TV channels and their corresponding events.
 
 ### Android
 ![Android Demo](/android.png)
@@ -17,10 +15,19 @@ TV channels and their corresponding events.
 - Allow users to scroll and select events.
 - Handle focus changes and keyboard interactions.
 - Responsive design to adapt to different screen sizes.
+- **Compose Multiplatform** support (Android, Desktop, iOS).
 
 ## Getting Started
 
 ### Installation
+
+Add the dependency to your module's `build.gradle.kts`:
+
+```kotlin
+implementation("dev.sajidali:tvguide:0.0.1")
+```
+
+Alternatively, you can clone the repository:
 
 1. Clone the repository:
 
@@ -28,74 +35,75 @@ TV channels and their corresponding events.
    git clone https://github.com/yourusername/tv-guide-component.git
    cd tv-guide-component
    ```
-2. Open the project in Android Studio.
+2. Open the project in your IDE (Android Studio).
 3. Sync the project to download the dependencies.
 
 ### Usage
 
-To integrate the TV Guide component into your application use it like any other Composable function:
+To integrate the TV Guide component into your application, use the `TvGuide` composable. You need to create a state using `rememberGuideState` and pass it to the component.
 
 ```kotlin
+// Create the state
+val state = rememberGuideState()
 
 TvGuide(
-    startTime = startTime,
-    endTime = stopTime,
-    hoursInViewport = 2.hours,
-    fastScroll = true, // If true it will scroll fast after 2 seconds long press
-    timeSpacing = 30.minutes, // Spacing between time cells in time bar
-    scrollToNow = true, // Whether to scroll to the current time when the guide is displayed.
-    onEventSelected = { channel: Int, event: Int ->
-        // Do something on event selection 
-    },
-    onEventClicked = { channel: Int, event: Int ->
-        // Do something on event click
-    }
+    state = state,
+    modifier = Modifier.fillMaxSize()
 ) {
-
-
-    CurrentDay(
-        modifier = Modifier
-    ) { time: Long ->
-        // Draw Current Day
-    }
-
-    Timebar(
-        height = 20.dp, modifier = Modifier
+    // Define the Header
+    Header(
+        modifier = Modifier.background(Color.LightGray)
     ) {
+        // Current Day Indicator
+        CurrentDay(
+            width = 250.dp,
+            modifier = Modifier
+        ) { time: Long ->
+            // Draw Current Day content
+        }
 
-        TimeCell(modifier = Modifier) { time: Long ->
-            // Draw time cell
+        // Timebar
+        Timebar(
+            modifier = Modifier
+        ) { time: Long ->
+            // Draw time cell content
+            Text(text = time.formatToPattern("HH:mm"))
         }
     }
 
+    // Define Channels and Events
     Channels(
         width = 250.dp,
-        height = 30.dp,
-        itemCount = provider.channelCount, // Number of channels to display
-        selectionScale = 2f, // Selected channel's row scale
+        itemsCount = provider.channelCount, // Number of channels
         modifier = Modifier
-    ) { channel: Int, isSelected: Boolean ->
-        ChannelCell(
-            modifier = Modifier
+    ) { isSelected ->
+        // 'position' is available in this scope (ChannelRowScope)
+        
+        ChannelRow(
+            modifier = Modifier.height(60.dp)
         ) {
-            // Single channel cell's layout
-        }
+            // Draw Channel Cell content (Icon, Name, etc.)
+            Text(text = "Channel $position")
 
-        Events(
-            modifier = Modifier,
-            events = provider.eventsOfChannel(channel) // list of events for channel
-        ) { event: Event, isEventSelected: Boolean ->
-            EventCell(
-                modifier = Modifier
-            ) {
-                // Event cell's layout
+            // Define Events for this channel
+            Events(
+                modifier = Modifier,
+                events = provider.eventsOfChannel(position) // List<Event>
+            ) { event, isEventSelected ->
+                
+                EventCell(
+                    event = event,
+                    modifier = Modifier
+                ) {
+                    // Draw Event content
+                    Text(text = event.title)
+                }
             }
-
         }
     }
 
+    // Current Time Indicator
     Now(modifier = Modifier) {
-        // Draw current time indicator line
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawLine(
                 color = Color.Red,
@@ -105,12 +113,9 @@ TvGuide(
             )
         }
     }
-
 }
-
 ```
 
 # License
 
-This project is licensed under the GNU General Public License v3.0 - see the [License](/LICENSE)file
-for details.
+This project is licensed under the Apache License 2.0.
