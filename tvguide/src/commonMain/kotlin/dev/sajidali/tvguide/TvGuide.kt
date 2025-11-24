@@ -1,77 +1,32 @@
 @file:OptIn(ExperimentalFoundationApi::class)
 
-package dev.sajidali.jctvguide
+package dev.sajidali.tvguide
 
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.ScrollableState
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberScrollableState
-import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.gestures.scrollable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.absoluteOffset
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import dev.sajidali.jctvguide.data.Event
-import dev.sajidali.jctvguide.data.EventWithIndex
-import dev.sajidali.jctvguide.utils.DefaultBringIntoViewSpec
-import dev.sajidali.jctvguide.utils.findVisibleEvents
-import dev.sajidali.jctvguide.utils.now
-import dev.sajidali.jctvguide.utils.pxToDp
-import dev.sajidali.jctvguide.utils.toPx
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import dev.sajidali.tvguide.data.Event
+import dev.sajidali.tvguide.data.EventWithIndex
+import dev.sajidali.tvguide.utils.*
+import kotlinx.coroutines.*
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -116,29 +71,30 @@ fun TvGuide(
 
         val size = remember { mutableStateOf(IntSize(1920, 1080)) }
 
-        Box(modifier = modifier
-            .keyEvent(onStartReached, onEndReached)
-            .onFocusChanged {
-                if (it.hasFocus && state.selectedEvent == -1) {
-                    state.selectedEvent = 0
+        Box(
+            modifier = modifier
+                .keyEvent(onStartReached, onEndReached)
+                .onFocusChanged {
+                    if (it.hasFocus && state.selectedEvent == -1) {
+                        state.selectedEvent = 0
+                    }
                 }
-            }
-            .onSizeChanged {
-                size.value = it
-            }
-            .fillMaxSize()
-            .scrollable(
-                horizontalScrollState,
-                Orientation.Horizontal,
-                reverseDirection = true,
-            )
+                .onSizeChanged {
+                    size.value = it
+                }
+                .fillMaxSize()
+                .scrollable(
+                    horizontalScrollState,
+                    Orientation.Horizontal,
+                    reverseDirection = true,
+                )
 //            .draggable(orientation = Orientation.Horizontal, state = draggableState)
-            .focusable()
+                .focusable()
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
 
                 val guideScopeImpl = remember(size.value) {
-                    TvGuideScopeImpl(size.value)
+                    TvGuideScope.Impl(size.value)
                 }
 
                 guideScopeImpl.content()
@@ -175,7 +131,7 @@ fun TvGuideScope.Header(
             .clipToBounds()
             .then(modifier)
     ) {
-        val headerScopeImpl = remember { HeaderScopeImpl() }
+        val headerScopeImpl = remember { HeaderScope.Impl }
         content(headerScopeImpl)
     }
 }
@@ -183,7 +139,7 @@ fun TvGuideScope.Header(
 @Composable
 fun HeaderScope.Timebar(
     modifier: Modifier = Modifier,
-    content: @Composable (TimeCellScope.() -> Unit)
+    content: @Composable BoxScope.(time: Long) -> Unit
 ) {
     val state = LocalTvGuideState.current
     val timeCellWidth by remember { derivedStateOf { state.timeCellWidth } }
@@ -206,16 +162,11 @@ fun HeaderScope.Timebar(
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
-                val timeCellScope = remember(roundTime) { TimeCellScopeImpl(roundTime) }
-                content(timeCellScope)
+                content(roundTime)
             }
         }
     }
 }
-
-class TvGuideScopeImpl(size: IntSize) : TvGuideScope(size)
-
-class HeaderScopeImpl : HeaderScope()
 
 @Composable
 fun HeaderScope.CurrentDay(
@@ -240,15 +191,15 @@ fun <T : Any> TvGuideScope.Channels(
     channels: SnapshotStateList<T>,
     key: (T?) -> Any,
     modifier: Modifier,
-    content: @Composable (ChannelRowScope.(index: Int, channel: T?, isSelected: Boolean) -> Unit)
+    content: @Composable ChannelRowScope.(channel: T?, isSelected: Boolean) -> Unit
 ) = Channels(
     width = width,
     itemsCount = channels.size,
     key = { key(channels[it]) },
     modifier = modifier
-) { index, isSelected ->
-    val channel = channels[index]
-    content(index, channel, isSelected)
+) { isSelected ->
+    val channel = channels[position]
+    content(channel, isSelected)
 }
 
 @Composable
@@ -256,51 +207,51 @@ fun TvGuideScope.Channels(
     width: Dp,
     itemsCount: Int,
     key: (index: Int) -> Any = { it },
-    modifier: Modifier,
-    content: @Composable (ChannelRowScope.(channel: Int, isSelected: Boolean) -> Unit)
+    modifier: Modifier = Modifier,
+    focusedChannelRow: Int = 4,
+    content: @Composable ChannelRowScope.(isSelected: Boolean) -> Unit
 ) {
     val state = LocalTvGuideState.current
     val horizontalState = LocalHorizontalScrollState.current
+
+
     val widthPx = width.toPx()
     val programAreaWidth = remember(size, width) { (size.width - widthPx) }
     val height = remember(size) { size.height }
 
-    val channelOffset = remember(height) { (-height / 4) }
-
     val channelState = rememberLazyListState(
-        state.selectedChannel,
-        channelOffset
+        state.selectedChannel
     )
 
-    LaunchedEffect(Unit) {
-        channelState.requestScrollToItem(state.selectedChannel, channelOffset)
+    val selectedChannelOffset by remember {
+        derivedStateOf {
+            val layoutInfo = channelState.layoutInfo
+            val contentPadding = layoutInfo.beforeContentPadding
+            val itemSpacing = layoutInfo.mainAxisItemSpacing
+            val itemHeight = layoutInfo.visibleItemsInfo.getOrNull(1)?.size ?: 0
+            -(contentPadding + (itemHeight + itemSpacing) * (focusedChannelRow - 1))
+        }
     }
 
     LaunchedEffect(programAreaWidth) {
-        state.update {
-            this.programAreaWidth = programAreaWidth
-        }
+        state.programAreaWidth = programAreaWidth
         horizontalState.scrollBy(state.selectionOffset)
     }
 
     LaunchedEffect(itemsCount) {
-        state.update {
-            channelCount = itemsCount
-        }
+        state.channelCount = itemsCount
     }
 
     LaunchedEffect(widthPx) {
-        state.update {
-            channelAreaWidth = widthPx
-        }
+        state.channelAreaWidth = widthPx
     }
 
     LaunchedEffect(state.selectedChannel) {
         val difference = abs(channelState.firstVisibleItemIndex - state.selectedChannel)
         if (difference < 5)
-            channelState.animateScrollToItem(state.selectedChannel, channelOffset)
+            channelState.animateScrollToItem(state.selectedChannel, selectedChannelOffset)
         else
-            channelState.requestScrollToItem(state.selectedChannel, channelOffset)
+            channelState.requestScrollToItem(state.selectedChannel, selectedChannelOffset)
     }
 
     LazyColumn(
@@ -320,13 +271,9 @@ fun TvGuideScope.Channels(
                 }
             }
 
-            val channelScopeImpl = remember(pos) { ChannelRowScopeImpl(pos) }
+            val channelScopeImpl = remember(pos) { ChannelRowScope.Impl(pos) }
 
-            content(
-                channelScopeImpl,
-                pos,
-                isSelected
-            )
+            channelScopeImpl.content(isSelected)
 
         }
     }
@@ -364,20 +311,16 @@ private fun Now(modifier: Modifier, content: @Composable (BoxScope.(time: Long) 
     }
 
     if (shouldDisplay) {
-        Box(modifier = Modifier
-            .offset {
-                animateOffset
-            }
-            .then(modifier)) {
+        Box(
+            modifier = Modifier
+                .offset {
+                    animateOffset
+                }
+                .then(modifier)) {
             content(currentTime)
         }
     }
 }
-
-
-class ChannelRowScopeImpl(
-    position: Int,
-) : ChannelRowScope(position)
 
 
 @Composable
@@ -391,13 +334,13 @@ fun ChannelRowScope.ChannelRow(
             .fillMaxWidth()
             .then(modifier)
     ) {
-        val channelScopeImpl = remember(position) { ChannelScopeImpl(position) }
+        val channelScopeImpl = remember(position) { ChannelScope.Impl(position) }
         channelScopeImpl.content(position)
     }
 }
 
 
-class EventScopeImpl(
+/*class EventScopeImpl(
     channel: Int,
     event: EventWithIndex,
 ) : EventScope(channel, event) {
@@ -448,7 +391,7 @@ class EventScopeImpl(
             }
     }
 
-}
+}*/
 
 @Composable
 fun EventScope.EventCell(
@@ -473,7 +416,7 @@ fun EventScope.EventCell(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(state.selectedChannel, state.selectionTime) {
-        if (state.selectedChannel == channel
+        if (state.selectedChannel == position
             && state.selectionTime in event.event.start.toFloat()..event.event.end.toFloat()
         ) {
             state.selectedEvent = event.index
@@ -503,16 +446,14 @@ fun EventScope.EventCell(
                     else -> false
                 }
             }
-            .pointerInput(channel, event.event.id) {
+            .pointerInput(position, event.event.id) {
                 detectTapGestures {
                     scope.launch {
                         horizontalScrollState.animateScrollBy((state.scrollTime - startVisibleTime) / state.millisPerPixel)
                     }
-                    state.update {
-                        selectedChannel = channel
-                        selectionTime = event.event.start.toFloat()
-                        onClick()
-                    }
+                    state.selectedChannel = position
+                    state.selectionTime = event.event.start.toFloat()
+                    onClick()
                 }
             }
             .focusable()
@@ -537,12 +478,10 @@ fun ChannelScope.ChannelCell(
         modifier = Modifier
             .fillMaxHeight()
             .width(state.channelAreaWidth.pxToDp())
-            .pointerInput(channel) {
+            .pointerInput(position) {
                 detectTapGestures(onPress = {
-                    state.update {
-                        selectedChannel = channel
-                        onClick()
-                    }
+                    state.selectedChannel = position
+                    onClick()
                 })
             }
             .then(modifier)
@@ -603,10 +542,7 @@ fun Modifier.keyEvent(onStartReached: () -> Unit = {}, onEndReached: () -> Unit 
                 val minSelectionTime =
                     if (state.stopAtNow && !shouldSkipNow) state.roundedNow else state.roundedStartTime
                 val maxSelectionTime = state.roundedEndTime
-                state.update {
-                    selectionTime =
-                        newSelectionTime.coerceIn(minSelectionTime, maxSelectionTime)
-                }
+                state.selectionTime = newSelectionTime.coerceIn(minSelectionTime, maxSelectionTime)
 
                 true
             }
@@ -618,10 +554,7 @@ fun Modifier.keyEvent(onStartReached: () -> Unit = {}, onEndReached: () -> Unit 
                 val minSelectionTime = state.roundedStartTime
                 val maxSelectionTime = state.roundedEndTime
 
-                state.update {
-                    selectionTime =
-                        newSelectionTime.coerceIn(minSelectionTime, maxSelectionTime)
-                }
+                state.selectionTime = newSelectionTime.coerceIn(minSelectionTime, maxSelectionTime)
                 if (newSelectionTime > state.roundedNow) {
                     shouldSkipNow = false
                 }
@@ -649,16 +582,12 @@ fun Modifier.keyEvent(onStartReached: () -> Unit = {}, onEndReached: () -> Unit 
     }
 }
 
-class ChannelScopeImpl(
-    channel: Int,
-) : ChannelScope(channel)
-
 
 @Composable
 fun ChannelScope.Events(
     modifier: Modifier,
     events: List<Event>,
-    content: @Composable (EventScope.(event: Event, isSelected: Boolean) -> Unit)
+    content: @Composable EventScope.(event: Event, isSelected: Boolean) -> Unit
 ) {
     val state = LocalTvGuideState.current
     var previousXOffset = remember {
@@ -710,13 +639,13 @@ fun ChannelScope.Events(
                 key(event.event.id) {
                     val isSelected by remember {
                         derivedStateOf {
-                            state.selectedChannel == channel && state.selectedEvent == event.index
+                            state.selectedChannel == position && state.selectedEvent == event.index
                         }
                     }
+
                     val eventScopeImpl =
-                        remember(channel, event.event.id) { EventScopeImpl(channel, event) }
-                    content(
-                        eventScopeImpl,
+                        remember(position, event.event.id) { EventScope.Impl(position, event) }
+                    eventScopeImpl.content(
                         event.event,
                         isSelected
                     )
@@ -735,11 +664,11 @@ fun ChannelScope.Events(
             )
             val isSelected by remember {
                 derivedStateOf {
-                    state.selectedChannel == channel && state.selectedEvent == event.index
+                    state.selectedChannel == position && state.selectedEvent == event.index
                 }
             }
             val eventScopeImpl =
-                remember(channel, event.event.id) { EventScopeImpl(channel, event) }
+                remember(position, event.event.id) { EventScope.Impl(position, event) }
             content(
                 eventScopeImpl,
                 event.event,
@@ -748,20 +677,4 @@ fun ChannelScope.Events(
         }
     }
 
-}
-
-class TimeCellScopeImpl(
-    time: Long
-) : TimeCellScope(time)
-
-@Composable
-fun TimeCellScope.TimeCell(modifier: Modifier, content: @Composable BoxScope.(time: Long) -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .then(modifier)
-    ) {
-        content(time)
-    }
 }

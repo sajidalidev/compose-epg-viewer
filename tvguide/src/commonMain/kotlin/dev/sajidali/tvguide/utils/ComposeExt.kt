@@ -1,18 +1,14 @@
-package dev.sajidali.jctvguide.utils
+package dev.sajidali.tvguide.utils
 
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.sajidali.jctvguide.TvGuideState
-import dev.sajidali.jctvguide.data.Event
+import dev.sajidali.tvguide.TvGuideState
+import dev.sajidali.tvguide.data.Event
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -69,16 +65,13 @@ fun rememberGuideState(
     hoursInViewport: Duration,
     timeSpacing: Duration,
     initialOffset: Long,
-    key: String? = null,
-) = rememberSaveable(key = key, saver = TvGuideState.Saver) {
+) = rememberSaveable(saver = TvGuideState.Saver) {
     TvGuideState().apply {
-        update {
-            this.startTime = startTime
-            this.endTime = endTime
-            this.hoursInViewport = hoursInViewport
-            this.timeSpacing = timeSpacing
-            if (selectionTime == 0f)
-                selectionTime = initialOffset.roundToNearest(timeSpacing).toFloat()
-        }
+        this.startTime = startTime
+        this.endTime = endTime
+        this.hoursInViewport = hoursInViewport
+        this.timeSpacing = timeSpacing
+        if (selectionTime == 0f)
+            selectionTime = initialOffset.roundToNearest(timeSpacing).toFloat()
     }
 }
