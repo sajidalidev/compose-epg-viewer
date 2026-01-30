@@ -32,8 +32,8 @@ Alternatively, you can clone the repository:
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/yourusername/tv-guide-component.git
-   cd tv-guide-component
+   git clone https://github.com/sajidalidev/compose-epg-viewer.git
+   cd compose-epg-viewer
    ```
 2. Open the project in your IDE (Android Studio).
 3. Sync the project to download the dependencies.
